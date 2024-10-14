@@ -1,0 +1,1 @@
+<h1>Your task: {{$data['task']}} has been completed</h1>
