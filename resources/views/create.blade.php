@@ -3,46 +3,51 @@
 @section('content')
 @auth
 
-<div class="flex items-center justify-center min-h-screen bg-gray-900">
-    <div class="w-96 backdrop-blur-lg bg-opacity-8- rounded-lg shadow-lg p-5 bg-gray-900 text-white">
-        <h2 class="text-2xl font-bold pb-5">Create Task</h2>
-        @if($errors->any())
-        <div style="background-color: red;padding:3px">
-            <ul>
-                @foreach ($errors->all() as $error)
-                <li>{{ $error }}</li>
-                    
-                @endforeach
-            </ul>
+<div class="flex items-center justify-center min-h-[calc(100vh-theme(spacing.32))]">
+    <div class="w-full max-w-md">
+        <div class="card">
+            <div class="mb-6">
+                <h2 class="text-2xl font-bold text-white">Create Task</h2>
+                <p class="text-gray-400 text-sm mt-1">Add a new task to your tracking system.</p>
+            </div>
+
+            @include('partials.validation-errors')
+            
+            <form action="{{ route('tasks.store') }}" method="post">
+                @csrf
+                <div class="mb-5">
+                    <label for="task" class="label">Task Description</label>
+                    <input type="text" name="task" id="task" placeholder="e.g. Fix navigation bug" class="input" value="{{ old('task') }}">
+                </div>
+            
+                <div class="mb-5">
+                    <label for="created_by" class="label">Created by</label>
+                    <input type="text" name="created_by" id="created_by" value="{{Auth::user()->name}}" class="input bg-gray-700 cursor-not-allowed" readonly>
+                </div>
+            
+                <div class="mb-6"> 
+                    <label for="assigned_to" class="label">Assigned to</label>
+                    <div class="relative">
+                        <select name="assigned_to" id="assigned_to" class="input appearance-none">
+                            <option value="" disabled selected>Select a technician</option>
+                            @foreach ($technicians as $technician)
+                                <option value="{{$technician->id}}" {{ old('assigned_to') == $technician->id ? 'selected' : '' }}>{{$technician->name}}</option>
+                            @endforeach
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-4">
+                    <button type="submit" class="btn w-full">Create Task</button>
+                    <a href="{{ route('tasks.index') }}" class="btn-secondary w-full text-center">Cancel</a>
+                </div>        
+            </form>
         </div>
-        @endif
-        
-        <form action="{{ route('tasks.store') }}" method="post">
-            @csrf
-            <div class="mb-4">
-                <label for="task" class="label">Task:</label>
-                <input type="text" name="task" id="task" placeholder="Input the task" class="input">
-            </div>
-        
-            <div class="mb-4">
-                <label for="created_by" class="label">Created by:</label>
-                <input type="text" name="created_by" id="created_by" value="{{Auth::user()->name}}" class="input">
-            </div>
-        
-            <div class="mb-4"> 
-                <label for="assigned_to" class="label">Assigned to</label>
-                <select name="assigned_to" id="assigned_to" class="bg-gray-100 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full py-2.5 px-4">
-                    
-                    @foreach ($technicians as $technician )
-                    
-                    <option value="{{$technician->name}}" name="assigned_to" id="assigned_to">{{$technician->name}}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="flex items-center text-sm">
-                <button type="submit" class="btn">Add Task</button>
-            </div>        
-        </form>
     </div>
 </div>
 

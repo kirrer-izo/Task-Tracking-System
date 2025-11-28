@@ -19,8 +19,8 @@ Route::post('/logout', function () {
 })->name('logout');
 
 
-Route::get('/registration',[UserController::class,'create']);
-Route::get('/login',[UserController::class,'index']);
+Route::get('/registration',[UserController::class,'create'])->name('register');
+Route::get('/login',[UserController::class,'index'])->name('login');
 Route::get('/logout',[UserController::class,'update'])->middleware('auth');
  
 

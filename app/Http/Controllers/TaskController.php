@@ -20,9 +20,14 @@ class TaskController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        $tasks = Task::where('created_by',$user->name)->get();
-        $todos = Task::where('assigned_to',$user->name)->get();
-       return view('index',['tasks'=>$tasks,'todos'=>$todos]);
+        if ($user->role == 'Assigner') {
+            $tasks = Task::where('created_by', $user->id)->with(['itTechnician'])->get();
+            $todos = collect();
+        } else {
+            $tasks = collect();
+            $todos = Task::where('assigned_to', $user->id)->with(['assigner'])->get();
+        }
+        return view('index', ['tasks' => $tasks, 'todos' => $todos]);
     }
 
     /**
@@ -30,43 +35,35 @@ class TaskController extends Controller
      */
     public function create(Request $request)
     {
-        $tasks = Task::all(); 
-        $technicians = User::where('role','IT technician')->get();
-        
-        
-        return view('create',['tasks'=>$tasks,'technicians'=>$technicians]);
+        $technicians = User::where('role', 'IT technician')->get();
+        return view('create', ['technicians' => $technicians]);
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request,User $user)
+    public function store(Request $request)
     {
-        // dd($request->all());
         $validatedData = $request->validate([
             'task' => 'required|string|max:225',
-            'created_by' => 'required',
-            'assigned_to' => 'required'
+            'assigned_to' => 'required|exists:users,id'
         ]);
+
         $task = new Task([
             'task' => $request->input('task'),
-            'created_by' => $request->input('created_by'),
+            'created_by' => Auth::id(),
             'assigned_to' => $request->input('assigned_to')
-
         ]);
 
         $task->save();
 
-        $assigned_user = DB::table('tasks')->join('users','tasks.assigned_to','=','users.name')->value('users.email');
+        $assigned_user = User::find($request->input('assigned_to'));
 
-        // if($assigned_user && $assigned_user->email){
-            Mail::to($assigned_user)->send(new AssignedTask(['name' => $task->created_by]));
+        if ($assigned_user) {
+            Mail::to($assigned_user->email)->send(new AssignedTask(['name' => Auth::user()->name]));
+        }
 
-        // }else{
-        //     throw new \LogicException('Assigned user does not exist or does not have valid email address');
-        // }
-
-        return redirect()->route('tasks.index')->with('success','Task created succesfully');
+        return redirect()->route('tasks.index')->with('success', 'Task created successfully');
     }
 
     /**
@@ -74,8 +71,7 @@ class TaskController extends Controller
      */
     public function show(Task $task)
     {
-    
-        return view('show',['task'=> $task]);
+        return view('show', ['task' => $task]);
     }
 
     /**
@@ -83,55 +79,45 @@ class TaskController extends Controller
      */
     public function edit(string $id)
     {
-        $tasks = Task::all();
-        $users = Task::all();
         $task = Task::findOrFail($id);
-        $technicians = User::where('role','IT technician')->get();
+        $technicians = User::where('role', 'IT technician')->get();
 
-        return view('edit',compact('task','tasks','technicians'));
+        return view('edit', compact('task', 'technicians'));
     }
 
     /**
      * Update the specified resource in storage.
      */
     public function update(Request $request, string $id)
-    {   
-        $user = User::all();
-        $task = Task::all();
-        $technicians = User::where('role','IT technician')->get();
-        // if(Auth::user()->name != $task->created_by){
-        //     abort(404);
-        // }
-         $validatedData = $request->validate([
-            'task' => 'required|string|max:225',
-            'created_by' => 'required',
-            'assigned_to' => 'required',
-            'status' => 'required',
-            'review' => 'nullable'
-            
-        ]);
-
-        // if($request->input('status')=='Completed'){
-        //     $request->validate([
-        //         'review' => 'required'
-        //     ]);
-        // }
-
+    {
         $task = Task::findOrFail($id);
-        $task->task = $request->input('task');
-        $task->created_by = $request->input('created_by');
-        $task->assigned_to = $request->input('assigned_to');
-        $task->status = $request->input('status');
-        $task->review = $request->input('review');
-        $task->save();
 
-        $created_by = DB::table('tasks')->join('users','tasks.created_by','=','users.name')->value('users.email');
-        if($task->status == 'Completed'){
-            
-            Mail::to($created_by)->send(new TaskCompleted(['task' => $task->task]));
+        if (Auth::user()->role == 'Assigner') {
+            $request->validate([
+                'task' => 'required|string|max:225',
+                'assigned_to' => 'required|exists:users,id',
+            ]);
+            $task->task = $request->input('task');
+            $task->assigned_to = $request->input('assigned_to');
+        } elseif (Auth::user()->role == 'IT technician') {
+            $request->validate([
+                'status' => 'required',
+                'review' => 'nullable'
+            ]);
+            $task->status = $request->input('status');
+            $task->review = $request->input('review');
         }
 
-        return redirect()->route('tasks.index',compact('technicians'))->with('success','Task updated successfuly');
+        $task->save();
+
+        if ($task->status == 'Completed') {
+            $creator = User::find($task->created_by);
+            if ($creator) {
+                Mail::to($creator->email)->send(new TaskCompleted(['task' => $task->task]));
+            }
+        }
+
+        return redirect()->route('tasks.index')->with('success', 'Task updated successfully');
     }
 
     /**
@@ -139,8 +125,7 @@ class TaskController extends Controller
      */
     public function destroy(string $id)
     {
-        Task::where('id',$id)->firstOrFail()->delete();
-        
-        return redirect()->route('tasks.index')->with('success','Task deleted');
+        Task::where('id', $id)->firstOrFail()->delete();
+        return redirect()->route('tasks.index')->with('success', 'Task deleted');
     }
 }
